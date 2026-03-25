@@ -13,6 +13,7 @@
  *   - u-boot,dm-pre-reloc  →  bootph-all  (required in 2025.1)
  *   - mdio {} wrapper required by new DM ETH
  *   - PHY reset-gpios: GPIO46, active-low (polarity 0)
+ *   - added 50 MHz reference crystal
  */
 /dts-v1/;
 #include "zynq-7000.dtsi"
@@ -122,3 +123,8 @@
 		};
 	};
 };
+
+&clkc {
+        ps-clk-frequency = <50000000>;
+};
+
