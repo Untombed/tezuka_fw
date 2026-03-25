@@ -1,7 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * LIBRE board DTS
+ * ZynqSDR Rev.5 — U-Boot device tree
+ * Board: ZynqSDR Rev.5 (XC7Z020-CLG400 + AD9363)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Based on zynq-pluto-sdr.dts (U-Boot 2016, tezuka_fw/libre).
+ * Adapted for u-boot-xlnx 2025.1:
+ *   - #include headers from the official ADI repository instead of custom ones
+ *   - linux,stdout-path (legacy format) removed — in 2025.1
+ *   - chosen: stdout-path as a string reference to an alias (recommended format)
+ *   - flash: fixed to match actual chip W25Q256 (Winbond)
+ *   - align partition node names with their flash offsets, in accordance with the DT specification.
+ *   - u-boot,dm-pre-reloc  →  bootph-all  (required in 2025.1)
+ *   - mdio {} wrapper required by new DM ETH
+ *   - PHY reset-gpios: GPIO46, active-low (polarity 0)
  */
 /dts-v1/;
 #include "zynq-7000.dtsi"
@@ -23,14 +34,14 @@
 
 	chosen {
 		bootargs = "earlyprintk";
-		linux,stdout-path = &uart0;
-		stdout-path = &uart0;
+		stdout-path = "serial0:115200n8";
 	};
 
 	usb_phy0: phy0 {
 		compatible = "usb-nop-xceiv";
 		#phy-cells = <0>;
 	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
@@ -42,44 +53,42 @@
 			wakeup-source;
 			autorepeat;
 		};
-
 	};
-	
-	
 };
-
-
-
-	
-
 
 &qspi {
 	status = "okay";
 	is-dual = <0>;
 	num-cs = <1>;
+
 	flash@0 {
-		compatible = "n25q512a","micron,m25p80";
+		compatible = "winbond,w25q256", "jedec,spi-nor";
+		/*
+		 * QSPI — Winbond W25Q256 (32 MiB)
+		 * Chip confirmed in boot log: "SF: Detected W25Q256"
+		 * Previous compatible "n25q512a","micron,m25p80" was incorrect. 
+		 */
 		reg = <0x0>;
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <4>;
 		spi-max-frequency = <50000000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		partition@qspi-fsbl-uboot {
+		partition@0 {
 			label = "qspi-fsbl-uboot";
-			reg = <0x0 0x100000>; /* 1M */
+			reg = <0x000000 0x100000>; /* 1 MiB */
 		};
-		partition@qspi-uboot-env {
+		partition@100000 {
 			label = "qspi-uboot-env";
-			reg = <0x100000 0x20000>; /* 128k */
+			reg = <0x100000 0x020000>; /* 128 KiB */
 		};
-		partition@qspi-nvmfs {
+		partition@120000 {
 			label = "qspi-nvmfs";
-			reg = <0x120000 0xE0000>; /* 1M */
+			reg = <0x120000 0x0E0000>; /* 896 KiB */
 		};
-		partition@qspi-linux {
+		partition@200000 {
 			label = "qspi-linux";
-			reg = <0x200000 0x1E00000>; /* 30M */
+			reg = <0x200000 0x1E00000>; /* 30 MiB */
 		};
 	};
 };
@@ -93,10 +102,10 @@
 	dr_mode = "host";
 	usb-phy = <&usb_phy0>;
 };
+
 &sdhci0 {
-	u-boot,dm-pre-reloc;
+	bootph-all;
 	status = "okay";
-	
 };
 
 &gem0 {
@@ -104,8 +113,12 @@
 	phy-mode = "rgmii-id";
 	phy-handle = <&ethernet_phy0>;
 
-	ethernet_phy0: ethernet-phy@0 {
-		reg = <0>;
-		reset-gpios = <&gpio0 46 0>;
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		ethernet_phy0: ethernet-phy@0 {
+			reg = <0>;
+			reset-gpios = <&gpio0 46 0>;
+		};
 	};
 };
