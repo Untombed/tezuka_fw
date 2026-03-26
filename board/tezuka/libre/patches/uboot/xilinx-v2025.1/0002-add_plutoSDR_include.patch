@@ -1,0 +1,23 @@
+--- /dev/null
++++ uboot-xilinx-v2025.1/include/configs/zynq_pluto-sdr.h
+@@ -0,0 +1,20 @@
++/*
++ * SPDX-License-Identifier: GPL-2.0+
++ *
++ * Configuration settings for the Xilinx Zynq Pluto SDR board
++ * See zynq-common.h for Zynq common configs
++ */
++
++#ifndef __CONFIG_ZYNQ_PLUTO_SDR_H
++#define __CONFIG_ZYNQ_PLUTO_SDR_H
++
++#include <configs/zynq-common.h>
++
++/* To maintain compatility with official SF map all uboot stuff
++ * SF map all uboot stuff must be between 0 and 0x100000
++ */
++
++#undef CONFIG_SYS_SPI_U_BOOT_OFFS
++#define CONFIG_SYS_SPI_U_BOOT_OFFS 0x40000
++
++#endif /* __CONFIG_ZYNQ_PLUTO_SDR_H */

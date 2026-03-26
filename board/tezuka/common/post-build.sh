@@ -15,9 +15,9 @@ cp -r ${BOARD_DIR}/msd/* ${BINARIES_DIR}/msd/
 LINUX_VERS=$(cat ${BR2_CONFIG} | grep '^BR2_LINUX_KERNEL_VERSION' | cut -d\" -f 2)
 UBOOT_VERS=$(cat ${BR2_CONFIG} | grep '^BR2_TARGET_UBOOT_VERSION' | cut -d\" -f 2)
 FW_VERSION=$(cd ${BOARD_DIR} && git describe --abbrev=4 --always --tags)
-sed -i s/##DEVICE_FW##/${FW_VERSION}/g ${BINARIES_DIR}/msd/LICENSE.html
-sed -i s/##LINUX_VERSION##/${LINUX_VERS}/g ${BINARIES_DIR}/msd/LICENSE.html
-sed -i s/##UBOOT_VERSION##/${UBOOT_VERS}/g ${BINARIES_DIR}/msd/LICENSE.html
+sed -i "s|##DEVICE_FW##|${FW_VERSION}|g" ${BINARIES_DIR}/msd/LICENSE.html
+sed -i "s|##LINUX_VERSION##|${LINUX_VERS}|g" ${BINARIES_DIR}/msd/LICENSE.html
+sed -i "s|##UBOOT_VERSION##|${UBOOT_VERS}|g" ${BINARIES_DIR}/msd/LICENSE.html
 
 echo device-fw tezuka-${FW_VERSION}> ${TARGET_DIR}/opt/VERSIONS
 
