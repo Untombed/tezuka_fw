@@ -1,0 +1,131 @@
+--- a/cmd/version.c	2026-03-22 13:47:12.595857396 +0100
++++ b/cmd/version.c	2026-03-22 14:03:07.673776824 +0100
+@@ -36,3 +36,128 @@
+ 	"print monitor, compiler and linker version",
+ 	""
+ );
++
++#include <vsprintf.h>
++#include <env.h>
++#include <asm/io.h>
++
++static int do_env_version(struct cmd_tbl *cmdtp, int flag, int argc,
++			  char *const argv[])
++{
++	env_set("uboot-version", version_string);
++	return 0;
++}
++
++U_BOOT_CMD(
++	envversion,	1,	1,	do_env_version,
++	"set env variable uboot-version to current U-Boot version string",
++	""
++);
++
++#define ZYNQ_XADC_BASE		0xF8007100
++#define XADC_CFG_REG0		0x100
++#define XADC_CFG_REG1		0x104
++#define XADC_INT_STS		0x10C
++#define XADC_DATA_REG(ch)	(0x200 + (ch) * 4)
++#define XADC_CFG0_CH_MASK	0x1F
++#define XADC_CFG0_AVG_NONE	(0x3 << 12)
++#define XADC_CFG0_BU		BIT(10)
++#define XADC_CFG1_SEQ_SINGLE	(0x3 << 12)
++#define XADC_INT_EOC		BIT(3)
++
++static int zynq_xadc_read(int channel)
++{
++	void __iomem *base = (void __iomem *)ZYNQ_XADC_BASE;
++	u32 val;
++	int timeout = 10000;
++
++	val = readl(base + XADC_CFG_REG1);
++	val &= ~(0xF << 12);
++	val |= XADC_CFG1_SEQ_SINGLE;
++	writel(val, base + XADC_CFG_REG1);
++
++	val = readl(base + XADC_CFG_REG0);
++	val &= ~(XADC_CFG0_CH_MASK | XADC_CFG0_AVG_NONE | XADC_CFG0_BU);
++	val |= (channel & XADC_CFG0_CH_MASK);
++	writel(val, base + XADC_CFG_REG0);
++
++	writel(XADC_INT_EOC, base + XADC_INT_STS);
++
++	while (timeout--) {
++		if (readl(base + XADC_INT_STS) & XADC_INT_EOC)
++			break;
++	}
++	if (timeout <= 0)
++		return -1;
++
++	val = readl(base + XADC_DATA_REG(channel));
++	val = (val >> 4) & 0xFFF;
++	val = (val * 1000) / 0xFFF;
++
++	return (int)val;
++}
++
++static int do_xadc(struct cmd_tbl *cmdtp, int flag, int argc,
++		   char *const argv[])
++{
++	int channel = 3;
++	int val;
++	char buf[16];
++
++	if (argc > 1)
++		channel = (int)simple_strtoul(argv[1], NULL, 10);
++
++	val = zynq_xadc_read(channel);
++	if (val < 0) {
++		printf("xadc: timeout reading channel %d\n", channel);
++		return CMD_RET_FAILURE;
++	}
++
++	snprintf(buf, sizeof(buf), "%d", val);
++	printf("%s\n", buf);
++	env_set("xadc_val", buf);
++
++	return val;
++}
++
++U_BOOT_CMD(
++	xadc,	2,	1,	do_xadc,
++	"read Zynq XADC channel (default: VP/VN ch3)",
++	"[channel]\n"
++	"    channel - XADC channel number (0-31), default 3 (VP/VN)\n"
++	"    Result printed and stored in $xadc_val (mV, 0-1000)"
++);
++
++static int do_adi_hwref(struct cmd_tbl *cmdtp, int flag, int argc,
++			char *const argv[])
++{
++	int val, ret = 0, i;
++	char buf[16];
++
++	val = zynq_xadc_read(3);
++	if (val < 0)
++		val = 0;
++
++	env_set("PlutoRevA", "");
++
++	for (i = 100; i <= 1000; i += 100) {
++		if ((val >= (i - 50)) && (val < (i + 50))) {
++			ret = i / 100;
++			break;
++		}
++	}
++
++	snprintf(buf, sizeof(buf), "config@%d", ret);
++	env_set("fit_config", buf);
++
++	return ret;
++}
++
++U_BOOT_CMD(
++	adi_hwref,	1,	1,	do_adi_hwref,
++	"determine hw revision via XADC VP/VN, set fit_config",
++	"\n"
++	"    Reads XADC VP/VN voltage, maps to FIT config@N\n"
++	"    Sets env: fit_config, PlutoRevA\n"
++	"    On ZynqSDR Rev.5: always sets fit_config=config@0"
++);
